@@ -1,0 +1,8 @@
+pandas
+numpy
+scipy
+yfinance
+requests
+streamlit
+matplotlib
+pyarrow
