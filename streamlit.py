@@ -2,7 +2,12 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
+import sys
 from src.rv_estimators import close_to_close_rv
+
+project_root = Path.cwd().parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
 
