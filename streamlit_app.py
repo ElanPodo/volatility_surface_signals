@@ -23,9 +23,7 @@ with st.sidebar:
 
 @st.cache_data
 def fetch_prices(ticker, start, end):
-    parquet_path = Path(__file__).parent / "streamlit_data" / f"{ticker.lower()}_prices.parquet"
-    st.write("Pandas:", pd.__version__)
-    st.write("File path resolved to:", str(parquet_path))
+    parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_prices.parquet"
     data = pd.read_parquet(parquet_path)
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data

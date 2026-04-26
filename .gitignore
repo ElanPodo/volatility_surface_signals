@@ -1,7 +1,7 @@
 # Data
-data/
+data/*
+!data/spy_prices.parquet
 *.parquet
-!streamlit_data/*.parquet
 *.csv
 
 # Python
