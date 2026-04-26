@@ -1,8 +1,8 @@
 # Data
 data/*
 *.parquet
-!data/spy_prices.parquet
 *.csv
+!data/spy_prices.parquet
 
 # Python
 __pycache__/

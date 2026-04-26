@@ -23,8 +23,32 @@ with st.sidebar:
 
 @st.cache_data
 def fetch_prices(ticker, start, end):
+    import hashlib
     parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_prices.parquet"
+    
+    with open(parquet_path, "rb") as f:
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+    
     data = pd.read_parquet(parquet_path)
+    
+    st.write("=" * 50)
+    st.write("STREAMLIT")
+    st.write("=" * 50)
+    st.write("File path:", str(parquet_path))
+    st.write("File hash:", file_hash)
+    st.write("Pandas version:", pd.__version__)
+    st.write("Shape:", data.shape)
+    st.write("Columns:", data.columns.tolist())
+    st.write("Index name:", data.index.name)
+    st.write("Index dtype:", str(data.index.dtype))
+    st.write("First 3 rows:", data.head(3))
+    st.write("Close mean:", data["Close"].mean())
+    
+    if pd.Timestamp("2024-12-31") in data.index:
+        st.write("Close at 2024-12-31:", data.loc["2024-12-31", "Close"])
+    else:
+        st.write("2024-12-31 not in index")
+    
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data
 
