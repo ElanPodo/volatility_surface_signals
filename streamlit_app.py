@@ -36,7 +36,7 @@ if prices.empty:
     st.stop()
 
 rv = close_to_close_rv(prices["Close"], window=window)
-parkison_rv = parkinson_rv(prices['High'], prices['Low'], window=21)
+park_rv = parkinson_rv(prices['High'], prices['Low'], window=21)
 
 col1, col2, col3 = st.columns(3)
 col1.metric("Latest RV", f"{rv.iloc[-1] * 100:.1f}%")
@@ -46,7 +46,7 @@ col3.metric("Max RV", f"{rv.max() * 100:.1f}%")
 st.subheader(f"{ticker} {window}-Day Close-to-Close Realized Volatility")
 fig, ax = plt.subplots(figsize=(12, 5))
 ax.plot(rv.index, rv * 100, linewidth=1, label="Close-to-Close RV")
-ax.plot(parkinson_rv.index, parkinson_rv * 100, linewidth=1, label="Parkinson RV")
+ax.plot(park_rv.index, park_rv * 100, linewidth=1, label="Parkinson RV")
 ax.set_xlabel("Date")
 ax.set_ylabel("Realized Volatility (%)")
 ax.grid(True, alpha=0.3)
