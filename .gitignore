@@ -1,7 +1,7 @@
 # Data
 data/
 *.parquet
-!data/*.parquet
+!streamlit_data/*.parquet
 *.csv
 
 # Python
