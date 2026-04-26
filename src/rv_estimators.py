@@ -17,14 +17,40 @@ def parkinson_rv(high_price, low_price, window=21, annualize=True, trading_days=
         rv = rv * np.sqrt(trading_days)
     return rv
 
-def garman_klass_rv(high_price, low_price, close, window=21, annualize=True, trading_days=252):
+def garman_klass_rv(high_price, low_price, open, close, window=21, annualize=True, trading_days=252):
     hl_term = 0.5 * np.square(np.log(high_price / low_price))
-    co_term = (2 * np.log(2) - 1) * np.square(np.log(close / close.shift(1)))
+    co_term = (2 * np.log(2) - 1) * np.square(np.log(close / open))
     daily_var = hl_term - co_term
     rv = np.sqrt(daily_var.rolling(window=window).mean())
     if annualize:
         rv = rv * np.sqrt(trading_days)
     return rv
+
+def yang_zhang_rv(high_price, low_price, open, close, window=21, annualize=True, trading_days=252):
+    open_to_close = np.log(close / open)
+    close_to_open = np.log(open / close.shift(1))
+    high_to_open = np.log(high_price / open)
+    high_to_close = np.log(high_price / close)
+    low_to_open = np.log(low_price / open)
+    low_to_close = np.log(low_price / close)
+
+    sum_rs = (high_to_open * high_to_close) + (low_to_open * low_to_close)
+    diff_o_square = np.square(close_to_open - close_to_open.rolling(window=window).mean())
+    diff_c_square = np.square(open_to_close - open_to_close.rolling(window=window).mean())
+
+    var_open = (1 / (window - 1)) * diff_o_square.rolling(window=window).sum()
+    var_close = (1 / (window - 1)) * diff_c_square.rolling(window=window).sum()
+    var_rs = sum_rs.rolling(window=window).mean()
+
+    k = 0.34 / (1.34 + ((1 + window) / (window - 1)))
+
+    rv = np.sqrt(var_open + (k * var_close) + ((1-k) * var_rs))
+    if annualize:
+        rv = rv * np.sqrt(trading_days)
+    return rv
+
+
+
 
 
 
