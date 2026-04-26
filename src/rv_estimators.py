@@ -17,3 +17,14 @@ def parkinson_rv(high_price, low_price, window=21, annualize=True, trading_days=
         rv = rv * np.sqrt(trading_days)
     return rv
 
+def garman_klass_rv(high_price, low_price, close, window=21, annualize=True, trading_days=252):
+    hl_term = 0.5 * np.square(np.log(high_price / low_price))
+    co_term = (2 * np.log(2) - 1) * np.square(np.log(close / close.shift(1)))
+    daily_var = hl_term - co_term
+    rv = np.sqrt(daily_var.rolling(window=window).mean())
+    if annualize:
+        rv = rv * np.sqrt(trading_days)
+    return rv
+
+
+
