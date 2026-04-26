@@ -61,6 +61,16 @@ if prices.empty:
 
 rv = close_to_close_rv(prices["Close"], window=window)
 
+st.write("STREAMLIT RV")
+st.write("Window used:", window)
+st.write("RV shape:", rv.shape)
+st.write("RV mean:", rv.mean())
+st.write("RV max:", rv.max())
+if pd.Timestamp("2024-12-31") in rv.index:
+    st.write("RV at 2024-12-31:", rv.loc["2024-12-31"])
+if pd.Timestamp("2020-03-20") in rv.index:
+    st.write("RV at 2020-03-20:", rv.loc["2020-03-20"])
+
 col1, col2, col3 = st.columns(3)
 col1.metric("Latest RV", f"{rv.iloc[-1] * 100:.1f}%")
 col2.metric("Mean RV", f"{rv.mean() * 100:.1f}%")
