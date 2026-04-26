@@ -2,13 +2,6 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
-from pathlib import Path
-import sys
-
-project_root = Path.cwd()
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
 from src.rv_estimators import close_to_close_rv
 
 
