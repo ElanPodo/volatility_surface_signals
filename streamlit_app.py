@@ -1,4 +1,4 @@
-import streamlit_app as st
+import streamlit as st
 import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
