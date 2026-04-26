@@ -1,7 +1,7 @@
 # Data
 data/*
-!data/spy_prices.parquet
 *.parquet
+!data/spy_prices.parquet
 *.csv
 
 # Python
