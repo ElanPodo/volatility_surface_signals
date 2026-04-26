@@ -19,7 +19,7 @@ with st.sidebar:
     ticker = st.text_input("Ticker", value="SPY").upper()
     start_date = st.date_input("Start date", value=pd.Timestamp("2020-01-01"))
     end_date = st.date_input("End date", value=pd.Timestamp("2025-12-31"))
-    window = st.slider("RV window (trading days)", min_value=5, max_value=63, value=13, step=1)
+    window = st.slider("RV window (trading days)", min_value=5, max_value=63, value=21, step=1)
 
 @st.cache_data
 def fetch_prices(ticker, start, end):
