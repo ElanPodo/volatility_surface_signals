@@ -3,7 +3,7 @@ import pandas as pd
 import yfinance as yf
 import matplotlib.pyplot as plt
 from pathlib import Path
-from src.rv_estimators import close_to_close_rv, parkinson_rv
+from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv
 
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
@@ -21,7 +21,7 @@ with st.sidebar:
     end_date = st.date_input("End date", value=pd.Timestamp("2025-12-31"))
     window = st.slider("RV window (trading days)", min_value=5, max_value=63, value=21, step=1)
 
-    available_estimators = ["Close-to-Close", "Parkinson"]
+    available_estimators = ["Close-to-Close", "Parkinson", "Garman-Klass"]
     plotted_estimators = st.multiselect(
         "Estimators to plot",
         options=available_estimators,
@@ -49,6 +49,7 @@ if prices.empty:
 estimators = {
     "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
     "Parkinson": parkinson_rv(prices["High"], prices["Low"], window=window),
+    "Garman-Klass": garman_klass_rv(prices["High"], prices["Low"], prices['Close'], window=window),
 }
 
 selected_rv = estimators[stats_estimator].dropna()
