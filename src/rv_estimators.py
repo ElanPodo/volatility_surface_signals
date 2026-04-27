@@ -47,6 +47,24 @@ def yang_zhang_rv(high_price, low_price, open, close, window=21, annualize=True,
         rv = rv * np.sqrt(trading_days)
     return rv
 
+def overnight_variance(open, close, window=21, annualize=True, trading_days=252):
+    co_returns = np.log(open / close.shift(1))
+    var = co_returns.rolling(window).var(ddof=1)
+    if annualize:
+        var = var * trading_days
+    return var
+
+def parkinson_total_rv(high_price, low_price, open, close, window=21):
+    park = parkinson_rv(high_price, low_price, window=window, annualize=False)
+    overnight = overnight_variance(open, close, window=window, annualize=False)
+    total_var = park**2 + overnight
+    return np.sqrt(total_var * 252)
+
+def garman_klass_total_rv(high_price, low_price, open, close, window=21):
+    gk = garman_klass_rv(high_price, low_price, window=window, annualize=False)
+    overnight = overnight_variance(open, close, window=window, annualize=False)
+    total_var = gk**2 + overnight
+    return np.sqrt(total_var * 252)
 
 
 
