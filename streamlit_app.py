@@ -27,10 +27,6 @@ with st.sidebar:
         options=available_estimators,
         default=available_estimators,
     )
-    stats_estimator = st.selectbox(
-        "Stats estimator",
-        options=available_estimators,
-    )
 
 
 @st.cache_data
@@ -67,6 +63,13 @@ estimators = {
 tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
 
 with tab1:
+    stats_estimator = st.selectbox(
+        "Stats estimator",
+        options=available_estimators,
+        index=available_estimators.index("Yang-Zhang"),
+        help="Drives the statistics for each estimator present in the plot below."
+    )
+
     selected_rv = estimators[stats_estimator].dropna()
 
     st.subheader(f"{stats_estimator} stats")
@@ -113,19 +116,21 @@ with tab2:
             vix = fetch_vix(start_date, end_date)
 
         vix_adjusted = vix["Close"] * np.sqrt(252 / 365)
-
-        # VRP metrics computed against the stats_estimator selection
-        forward_rv_stats = estimators[stats_estimator].shift(-window) * 100
+        vrp_estimator = st.selectbox(
+        "VRP estimator",
+        options=available_estimators,
+        index=available_estimators.index("Yang-Zhang"),
+        help="Drives the VRP metrics and spread subplot below.")
+        forward_rv_stats = estimators[vrp_estimator].shift(-window) * 100
         vrp = (vix_adjusted - forward_rv_stats).dropna()
 
-        st.markdown(f"**Variance risk premium stats (using {stats_estimator})**")
+        st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Mean VRP", f"{vrp.mean():.2f} vol pts")
         m2.metric("% days VRP > 0", f"{(vrp > 0).mean() * 100:.1f}%")
         m3.metric("Worst day", f"{vrp.min():.2f}")
         m4.metric("Corr(VIX, fwd RV)", f"{vix_adjusted.corr(forward_rv_stats):.2f}")
 
-        # Main chart
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX (252-day adj.)", color="black")
         for name in plotted_estimators:
@@ -137,8 +142,7 @@ with tab2:
         ax.legend()
         st.pyplot(fig)
 
-        # VRP spread subplot
-        st.markdown(f"**VRP spread: VIX − Forward {stats_estimator} RV**")
+        st.markdown(f"**VRP spread: VIX − Forward {vrp_estimator} RV**")
         fig2, ax2 = plt.subplots(figsize=(12, 3))
         ax2.fill_between(vrp.index, vrp, 0, where=(vrp >= 0), alpha=0.4, color="green", label="VIX > RV (vol overpriced)")
         ax2.fill_between(vrp.index, vrp, 0, where=(vrp < 0), alpha=0.4, color="red", label="VIX < RV (vol underpriced)")
