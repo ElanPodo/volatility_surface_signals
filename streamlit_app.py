@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv
+from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv, parkinson_total_rv, garman_klass_total_rv
 
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
@@ -21,11 +21,18 @@ with st.sidebar:
     end_date = st.date_input("End date", value=pd.Timestamp("2025-12-31"))
     window = st.slider("RV window (trading days)", min_value=5, max_value=63, value=21, step=1)
 
-    available_estimators = ["Close-to-Close", "Parkinson", "Garman-Klass", "Yang-Zhang"]
+    available_estimators_rv = ["Close-to-Close", "Parkinson", "Garman-Klass", "Yang-Zhang"]
     plotted_estimators = st.multiselect(
-        "Estimators to plot",
-        options=available_estimators,
-        default=available_estimators,
+        "RV estimators to plot",
+        options=available_estimators_rv,
+        default=available_estimators_rv,
+    )
+
+    available_estimators_frv = ["Close-to-Close", "Yang-Zhang", "YZ Parkinson", "YZ Garman-Klass"]
+    plotted_estimators = st.multiselect(
+        "Forward RV estimators to plot",
+        options=available_estimators_frv,
+        default=available_estimators_frv,
     )
 
 
@@ -53,11 +60,18 @@ if prices.empty:
     st.error(f"No data returned for {ticker}. Check the ticker and date range.")
     st.stop()
 
-estimators = {
+estimators_tab1 = {
     "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
     "Parkinson": parkinson_rv(prices["High"], prices["Low"], window=window),
     "Garman-Klass": garman_klass_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
     "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+}
+
+estimators_tab2 = {
+    "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
+    "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "YZ Garman-Klass": garman_klass_total_rv(prices["High"], prices["Low"], window=window),
+    "YZ Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
 }
 
 tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
@@ -65,12 +79,12 @@ tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
 with tab1:
     stats_estimator = st.selectbox(
         "Stats estimator",
-        options=available_estimators,
-        index=available_estimators.index("Yang-Zhang"),
+        options=available_estimators_rv,
+        index=available_estimators_rv.index("Yang-Zhang"),
         help="Drives the statistics for each estimator present in the plot below."
     )
 
-    selected_rv = estimators[stats_estimator].dropna()
+    selected_rv = estimators_tab1[stats_estimator].dropna()
 
     st.subheader(f"{stats_estimator} stats")
     col1, col2, col3 = st.columns(3)
@@ -85,7 +99,7 @@ with tab1:
     else:
         fig, ax = plt.subplots(figsize=(12, 5))
         for name in plotted_estimators:
-            series = estimators[name]
+            series = estimators_tab1[name]
             ax.plot(series.index, series * 100, linewidth=1, label=f"{name} RV")
         ax.set_xlabel("Date")
         ax.set_ylabel("Realized Volatility (%)")
@@ -118,10 +132,10 @@ with tab2:
         vix_adjusted = vix["Close"]
         vrp_estimator = st.selectbox(
         "VRP estimator",
-        options=available_estimators,
-        index=available_estimators.index("Yang-Zhang"),
+        options=available_estimators_frv,
+        index=available_estimators_frv.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
-        forward_rv_stats = estimators[vrp_estimator].shift(-window) * 100
+        forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
         vrp = (vix_adjusted - forward_rv_stats).dropna()
 
         st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
@@ -134,7 +148,7 @@ with tab2:
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX)", color="black")
         for name in plotted_estimators:
-            forward_rv = estimators[name].shift(-window) * 100
+            forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
         ax.set_xlabel("Date")
         ax.set_ylabel("Volatility (%)")
