@@ -28,7 +28,7 @@ with st.sidebar:
         default=available_estimators_rv,
     )
 
-    available_estimators_frv = ["Close-to-Close", "Yang-Zhang", "Yang-Zhang Adjusted Parkinson", "Yang-Zhang Adjusted Garman-Klass"]
+    available_estimators_frv = ["Close-to-Close", "Yang-Zhang", "YZ Parkinson", "YZ Garman-Klass"]
     plotted_estimators_frv = st.multiselect(
         "Forward RV estimators to plot",
         options=available_estimators_frv,
@@ -70,8 +70,8 @@ estimators_tab1 = {
 estimators_tab2 = {
     "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
     "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
-    "YZ Garman-Klass": garman_klass_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
-    "YZ Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "Yang-Zhang Adjusted Garman-Klass": garman_klass_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "Yang-Zhang Adjusted Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
 }
 
 tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
@@ -131,8 +131,8 @@ with tab2:
 
         vix_adjusted = vix["Close"]
         vrp_estimator = st.selectbox("VRP estimator",
-        options=["Close-to-Close", "Yang-Zhang", "YZ Garman-Klass", "YZ Parkinson"]
-        index=available_estimators_frv.index("Yang-Zhang"),
+        options=["Close-to-Close", 'Yang-Zhang', 'Yang-Zhang Adjusted Parkinson', 'Yang-Zhang Adjusted Garman-Klass'],
+        index=["Close-to-Close", 'Yang-Zhang', 'Yang-Zhang Adjusted Parkinson', 'Yang-Zhang Adjusted Garman-Klass'].index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
         forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
         vrp = (vix_adjusted - forward_rv_stats).dropna()
