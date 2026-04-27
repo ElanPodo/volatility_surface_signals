@@ -114,18 +114,41 @@ with tab2:
 
         vix_adjusted = vix["Close"] * np.sqrt(252 / 365)
 
+        # VRP metrics computed against the stats_estimator selection
+        forward_rv_stats = estimators[stats_estimator].shift(-window) * 100
+        vrp = (vix_adjusted - forward_rv_stats).dropna()
+
+        st.markdown(f"**Variance risk premium stats (using {stats_estimator})**")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Mean VRP", f"{vrp.mean():.2f} vol pts")
+        m2.metric("% days VRP > 0", f"{(vrp > 0).mean() * 100:.1f}%")
+        m3.metric("Worst day", f"{vrp.min():.2f} vol pts")
+        m4.metric("Corr(VIX, fwd RV)", f"{vix_adjusted.corr(forward_rv_stats):.2f}")
+
+        # Main chart
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX (252-day adj.)", color="black")
-
         for name in plotted_estimators:
             forward_rv = estimators[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
-
         ax.set_xlabel("Date")
         ax.set_ylabel("Volatility (%)")
         ax.grid(True, alpha=0.3)
         ax.legend()
         st.pyplot(fig)
+
+        # VRP spread subplot
+        st.markdown(f"**VRP spread: VIX − Forward {stats_estimator} RV**")
+        fig2, ax2 = plt.subplots(figsize=(12, 3))
+        ax2.fill_between(vrp.index, vrp, 0, where=(vrp >= 0), alpha=0.4, color="green", label="VIX > RV (vol overpriced)")
+        ax2.fill_between(vrp.index, vrp, 0, where=(vrp < 0), alpha=0.4, color="red", label="VIX < RV (vol underpriced)")
+        ax2.axhline(0, color="black", linewidth=0.8)
+        ax2.axhline(vrp.mean(), color="blue", linewidth=0.8, linestyle="--", label=f"Mean ({vrp.mean():.2f})")
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("VRP (vol pts)")
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc="lower right")
+        st.pyplot(fig2)
 
         st.caption(
             f"Note: the last {window} trading days have NaN forward RV (the future hasn't realized yet), "
