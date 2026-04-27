@@ -115,7 +115,7 @@ with tab2:
         with st.spinner("Fetching VIX..."):
             vix = fetch_vix(start_date, end_date)
 
-        vix_adjusted = vix["Close"] * np.sqrt(252 / 365)
+        vix_adjusted = vix["Close"]
         vrp_estimator = st.selectbox(
         "VRP estimator",
         options=available_estimators,
@@ -132,7 +132,7 @@ with tab2:
         m4.metric("Corr(VIX, fwd RV)", f"{vix_adjusted.corr(forward_rv_stats):.2f}")
 
         fig, ax = plt.subplots(figsize=(12, 5))
-        ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX (252-day adj.)", color="black")
+        ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX)", color="black")
         for name in plotted_estimators:
             forward_rv = estimators[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")

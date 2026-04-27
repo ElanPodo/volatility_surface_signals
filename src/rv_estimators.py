@@ -35,11 +35,9 @@ def yang_zhang_rv(high_price, low_price, open, close, window=21, annualize=True,
     low_to_close = np.log(low_price / close)
 
     sum_rs = (high_to_open * high_to_close) + (low_to_open * low_to_close)
-    diff_o_square = np.square(close_to_open - close_to_open.rolling(window=window).mean())
-    diff_c_square = np.square(open_to_close - open_to_close.rolling(window=window).mean())
 
-    var_open = (1 / (window - 1)) * diff_o_square.rolling(window=window).sum()
-    var_close = (1 / (window - 1)) * diff_c_square.rolling(window=window).sum()
+    var_open = close_to_open.rolling(window=window).var(ddof=1)
+    var_close = open_to_close.rolling(window=window).var(ddof=1)
     var_rs = sum_rs.rolling(window=window).mean()
 
     k = 0.34 / (1.34 + ((1 + window) / (window - 1)))
