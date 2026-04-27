@@ -6,10 +6,6 @@ from pathlib import Path
 from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv
 
 
-PROJECT_ROOT = Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
-DATA_DIR = PROJECT_ROOT / "data"
-
-
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
 
 st.title("Volatility Surface Signals")
@@ -114,7 +110,6 @@ with tab2:
         with st.spinner("Fetching VIX..."):
             vix = fetch_vix(start_date, end_date)
 
-        # Convert VIX from 365-day to 252-day annualization to match RV estimators
         vix_adjusted = vix["Close"] * np.sqrt(252 / 365)
 
         fig, ax = plt.subplots(figsize=(12, 5))
