@@ -122,7 +122,7 @@ with tab2:
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Mean VRP", f"{vrp.mean():.2f} vol pts")
         m2.metric("% days VRP > 0", f"{(vrp > 0).mean() * 100:.1f}%")
-        m3.metric("Worst day", f"{vrp.min():.2f} vol pts")
+        m3.metric("Worst day", f"{vrp.min():.2f}")
         m4.metric("Corr(VIX, fwd RV)", f"{vix_adjusted.corr(forward_rv_stats):.2f}")
 
         # Main chart
