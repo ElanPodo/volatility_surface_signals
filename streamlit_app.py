@@ -136,7 +136,7 @@ with tab2:
         options=available_vrp_estimator,
         index=available_vrp_estimator.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
-        forward_rv_stats = estimators_tab2[available_vrp_estimator].shift(-window) * 100
+        forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
         vrp = (vix_adjusted - forward_rv_stats).dropna()
 
         st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
@@ -148,7 +148,7 @@ with tab2:
 
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX)", color="black")
-        for name in plotted_estimators_frv:
+        for name in available_vrp_estimator:
             forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
         ax.set_xlabel("Date")
