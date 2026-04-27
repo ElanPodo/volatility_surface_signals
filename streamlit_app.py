@@ -70,8 +70,8 @@ estimators_tab1 = {
 estimators_tab2 = {
     "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
     "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
-    "Yang-Zhang Adjusted Garman-Klass": garman_klass_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
-    "Yang-Zhang Adjusted Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "YZ Garman-Klass": garman_klass_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "YZ Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
 }
 
 tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
