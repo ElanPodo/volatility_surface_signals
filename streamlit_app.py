@@ -22,14 +22,14 @@ with st.sidebar:
     window = st.slider("RV window (trading days)", min_value=5, max_value=63, value=21, step=1)
 
     available_estimators_rv = ["Close-to-Close", "Parkinson", "Garman-Klass", "Yang-Zhang"]
-    plotted_estimators = st.multiselect(
+    plotted_estimators_rv = st.multiselect(
         "RV estimators to plot",
         options=available_estimators_rv,
         default=available_estimators_rv,
     )
 
     available_estimators_frv = ["Close-to-Close", "Yang-Zhang", "YZ Parkinson", "YZ Garman-Klass"]
-    plotted_estimators = st.multiselect(
+    plotted_estimators_frv = st.multiselect(
         "Forward RV estimators to plot",
         options=available_estimators_frv,
         default=available_estimators_frv,
@@ -94,11 +94,11 @@ with tab1:
 
     st.subheader(f"{ticker} {window}-Day Realized Volatility")
 
-    if not plotted_estimators:
+    if not plotted_estimators_rv:
         st.info("Select at least one estimator to plot.")
     else:
         fig, ax = plt.subplots(figsize=(12, 5))
-        for name in plotted_estimators:
+        for name in plotted_estimators_rv:
             series = estimators_tab1[name]
             ax.plot(series.index, series * 100, linewidth=1, label=f"{name} RV")
         ax.set_xlabel("Date")
@@ -123,7 +123,7 @@ with tab2:
             f"Forward RV vs VIX comparison is only meaningful for SPY (VIX is SPX-implied vol). "
             f"Current ticker: {ticker}. Switch to SPY in the sidebar to view this chart."
         )
-    elif not plotted_estimators:
+    elif not plotted_estimators_frv:
         st.info("Select at least one estimator in the sidebar to plot.")
     else:
         with st.spinner("Fetching VIX..."):
@@ -147,7 +147,7 @@ with tab2:
 
         fig, ax = plt.subplots(figsize=(12, 5))
         ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX)", color="black")
-        for name in plotted_estimators:
+        for name in plotted_estimators_frv:
             forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
         ax.set_xlabel("Date")
