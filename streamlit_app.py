@@ -35,6 +35,8 @@ with st.sidebar:
         default=available_estimators_frv,
     )
 
+    available_vrp_estimator = ["Close-to-Close", 'Yang-Zhang', 'Yang-Zhang Adjusted Parkinson', 'Yang-Zhang Adjusted Garman-Klass']
+
 
 @st.cache_data
 def fetch_prices(ticker, start, end):
@@ -131,10 +133,10 @@ with tab2:
 
         vix_adjusted = vix["Close"]
         vrp_estimator = st.selectbox("VRP estimator",
-        options=["Close-to-Close", 'Yang-Zhang', 'Yang-Zhang Adjusted Parkinson', 'Yang-Zhang Adjusted Garman-Klass'],
-        index=["Close-to-Close", 'Yang-Zhang', 'Yang-Zhang Adjusted Parkinson', 'Yang-Zhang Adjusted Garman-Klass'].index("Yang-Zhang"),
+        options=available_vrp_estimator,
+        index=available_vrp_estimator.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
-        forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
+        forward_rv_stats = estimators_tab2[available_vrp_estimator].shift(-window) * 100
         vrp = (vix_adjusted - forward_rv_stats).dropna()
 
         st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
