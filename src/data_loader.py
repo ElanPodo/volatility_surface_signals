@@ -37,3 +37,4 @@ def fetch_yfinance_prices(ticker, start, end, out_path, force_refresh):
 if __name__ == "__main__":
     fetch_dolthub_options()
     fetch_yfinance_prices(ticker = 'SPY', start = '2020-01-01', end = '2025-12-31', out_path = 'data/spy_prices.parquet', force_refresh=True)
+    fetch_yfinance_prices(ticker = '^VIX', start = '2020-01-01', end = '2025-12-31', out_path = 'data/vix_prices.parquet', force_refresh=True)
