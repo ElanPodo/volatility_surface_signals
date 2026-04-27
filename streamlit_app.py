@@ -35,14 +35,16 @@ with st.sidebar:
 
 @st.cache_data
 def fetch_prices(ticker, start, end):
-    data = pd.read_parquet(DATA_DIR / f"{ticker.lower()}_prices.parquet")
+    parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_prices.parquet"
+    data = pd.read_parquet(parquet_path)
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data
 
 
 @st.cache_data
 def fetch_vix(start, end):
-    data = pd.read_parquet(DATA_DIR / "vix_prices.parquet")
+    parquet_path = Path(__file__).parent / "data" / "vix_prices.parquet"
+    data = pd.read_parquet(parquet_path)
     data.index.name = "date"
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data
