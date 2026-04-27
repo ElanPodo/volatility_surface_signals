@@ -61,7 +61,7 @@ def parkinson_total_rv(high_price, low_price, open, close, window=21):
     return np.sqrt(total_var * 252)
 
 def garman_klass_total_rv(high_price, low_price, open, close, window=21):
-    gk = garman_klass_rv(high_price, low_price, window=window, annualize=False)
+    gk = garman_klass_rv(high_price, low_price, open, close, window=window, annualize=False)
     overnight = overnight_variance(open, close, window=window, annualize=False)
     total_var = gk**2 + overnight
     return np.sqrt(total_var * 252)
