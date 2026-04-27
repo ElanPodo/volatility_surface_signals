@@ -130,9 +130,8 @@ with tab2:
             vix = fetch_vix(start_date, end_date)
 
         vix_adjusted = vix["Close"]
-        vrp_estimator = st.selectbox(
-        "VRP estimator",
-        options=available_estimators_frv,
+        vrp_estimator = st.selectbox("VRP estimator",
+        options=["Close-to-Close", "Yang-Zhang", "YZ Garman-Klass", "YZ Parkinson"]
         index=available_estimators_frv.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
         forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
