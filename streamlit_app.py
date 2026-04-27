@@ -1,9 +1,13 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
+import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv
+
+
+PROJECT_ROOT = Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
+DATA_DIR = PROJECT_ROOT / "data"
 
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
@@ -32,12 +36,21 @@ with st.sidebar:
         options=available_estimators,
     )
 
+
 @st.cache_data
 def fetch_prices(ticker, start, end):
-    parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_prices.parquet"
-    data = pd.read_parquet(parquet_path)
+    data = pd.read_parquet(DATA_DIR / f"{ticker.lower()}_prices.parquet")
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data
+
+
+@st.cache_data
+def fetch_vix(start, end):
+    data = pd.read_parquet(DATA_DIR / "vix_prices.parquet")
+    data.index.name = "date"
+    data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
+    return data
+
 
 with st.spinner(f"Fetching {ticker} prices..."):
     prices = fetch_prices(ticker, start_date, end_date)
@@ -49,32 +62,75 @@ if prices.empty:
 estimators = {
     "Close-to-Close": close_to_close_rv(prices["Close"], window=window),
     "Parkinson": parkinson_rv(prices["High"], prices["Low"], window=window),
-    "Garman-Klass": garman_klass_rv(prices["High"], prices["Low"], prices['Open'], prices['Close'], window=window),
-    "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices['Open'], prices['Close'], window=window)
+    "Garman-Klass": garman_klass_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
+    "Yang-Zhang": yang_zhang_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
 }
 
-selected_rv = estimators[stats_estimator].dropna()
+tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
 
-st.subheader(f"{stats_estimator} stats")
-col1, col2, col3 = st.columns(3)
-col1.metric("Latest RV", f"{selected_rv.iloc[-1] * 100:.1f}%")
-col2.metric("Mean RV", f"{selected_rv.mean() * 100:.1f}%")
-col3.metric("Max RV", f"{selected_rv.max() * 100:.1f}%")
+with tab1:
+    selected_rv = estimators[stats_estimator].dropna()
 
-st.subheader(f"{ticker} {window}-Day Realized Volatility")
+    st.subheader(f"{stats_estimator} stats")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Latest RV", f"{selected_rv.iloc[-1] * 100:.1f}%")
+    col2.metric("Mean RV", f"{selected_rv.mean() * 100:.1f}%")
+    col3.metric("Max RV", f"{selected_rv.max() * 100:.1f}%")
 
-if not plotted_estimators:
-    st.info("Select at least one estimator to plot.")
-else:
-    fig, ax = plt.subplots(figsize=(12, 5))
-    for name in plotted_estimators:
-        series = estimators[name]
-        ax.plot(series.index, series * 100, linewidth=1, label=f"{name} RV")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Realized Volatility (%)")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    st.pyplot(fig)
+    st.subheader(f"{ticker} {window}-Day Realized Volatility")
 
-with st.expander("Show price data"):
-    st.dataframe(prices.tail(20))
+    if not plotted_estimators:
+        st.info("Select at least one estimator to plot.")
+    else:
+        fig, ax = plt.subplots(figsize=(12, 5))
+        for name in plotted_estimators:
+            series = estimators[name]
+            ax.plot(series.index, series * 100, linewidth=1, label=f"{name} RV")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Realized Volatility (%)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        st.pyplot(fig)
+
+    with st.expander("Show price data"):
+        st.dataframe(prices.tail(20))
+
+with tab2:
+    st.subheader("Forward Realized Volatility vs VIX")
+    st.markdown(
+        f"VIX(t) is the market's IV forecast for [t, t+30 calendar days]. "
+        f"Forward RV(t) is the RV that actually realized over [t, t+{window} trading days]. "
+        f"The spread VIX − forward RV is the realized variance risk premium."
+    )
+
+    if ticker != "SPY":
+        st.warning(
+            f"Forward RV vs VIX comparison is only meaningful for SPY (VIX is SPX-implied vol). "
+            f"Current ticker: {ticker}. Switch to SPY in the sidebar to view this chart."
+        )
+    elif not plotted_estimators:
+        st.info("Select at least one estimator in the sidebar to plot.")
+    else:
+        with st.spinner("Fetching VIX..."):
+            vix = fetch_vix(start_date, end_date)
+
+        # Convert VIX from 365-day to 252-day annualization to match RV estimators
+        vix_adjusted = vix["Close"] * np.sqrt(252 / 365)
+
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX (252-day adj.)", color="black")
+
+        for name in plotted_estimators:
+            forward_rv = estimators[name].shift(-window) * 100
+            ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
+
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Volatility (%)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        st.pyplot(fig)
+
+        st.caption(
+            f"Note: the last {window} trading days have NaN forward RV (the future hasn't realized yet), "
+            f"so RV lines end before the VIX line."
+        )
