@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 
 def close_to_close_rv(prices, window=21, annualize=True, trading_days=252):
@@ -26,6 +27,11 @@ def garman_klass_rv(high_price, low_price, open, close, window=21, annualize=Tru
         rv = rv * np.sqrt(trading_days)
     return rv
 
+def daily_rv(high, low, open, close):
+    overnight = np.log(open / close.shift(1)) ** 2
+    rogers_satchell = (np.log(high / close) * np.log(high / open) + np.log(low / close) * np.log(low / open))
+    return overnight + rogers_satchell
+
 def yang_zhang_rv(high_price, low_price, open, close, window=21, annualize=True, trading_days=252):
     open_to_close = np.log(close / open)
     close_to_open = np.log(open / close.shift(1))
@@ -40,7 +46,7 @@ def yang_zhang_rv(high_price, low_price, open, close, window=21, annualize=True,
     var_close = open_to_close.rolling(window=window).var(ddof=1)
     var_rs = sum_rs.rolling(window=window).mean()
 
-    k = 0.34 / (1.34 + ((1 + window) / (window - 1)))
+    k = 0.34 / (1.34 + ((window + 1) / (window - 1)))
 
     rv = np.sqrt(var_open + (k * var_close) + ((1-k) * var_rs))
     if annualize:
@@ -65,6 +71,21 @@ def garman_klass_total_rv(high_price, low_price, open, close, window=21):
     overnight = overnight_variance(open, close, window=window, annualize=False)
     total_var = gk**2 + overnight
     return np.sqrt(total_var * 252)
+
+def har_rv(data, annualize=True, trading_days=252):
+    rv_1 = daily_rv(data['High'], data['Low'], data['Open'], data['Close'])
+    if annualize:
+        rv_1 = rv_1 * trading_days
+
+    df = pd.DataFrame({"RV Day(t)": rv_1, "RV Week": rv_1.rolling(5).mean(), "RV Month": rv_1.rolling(22).mean()}, index=data.index)
+    df['RV Target'] = df['RV Day(t)'].shift(-1)
+    df =  df.dropna()
+
+    X = sm.add_constant(df[['RV Day(t)', 'RV Week', 'RV Month']])
+    y = df['RV Target']
+    model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags':22})
+    df['RV Forecast(t+1)'] = model.predict(sm.add_constant(df[['RV Day(t)', 'RV Week', 'RV Month']]))
+    return model, df
 
 
 
