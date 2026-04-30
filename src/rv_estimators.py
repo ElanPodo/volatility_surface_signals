@@ -75,86 +75,25 @@ def garman_klass_total_rv(high_price, low_price, open, close, window=21):
     return np.sqrt(total_var * 252)
 
 def har_rv(data, annualize=True, trading_days=252):
+    if data.index.duplicated().any():
+        data = data.groupby(data.index).agg({
+            'High': 'first', 'Low': 'first', 'Open': 'first', 'Close': 'first'
+        })
+    
     rv_1 = daily_rv(data['High'], data['Low'], data['Open'], data['Close'])
     if annualize:
         rv_1 = rv_1 * trading_days
 
-    df = pd.DataFrame({"RV Day(t)": rv_1, "RV Week": rv_1.rolling(5).mean(), "RV Month": rv_1.rolling(22).mean()}, index=data.index)
+    df = pd.DataFrame({
+        "RV Day(t)": rv_1,
+        "RV Week": rv_1.rolling(5).mean(),
+        "RV Month": rv_1.rolling(22).mean(),
+    }, index=data.index)
     df['RV Target'] = df['RV Day(t)'].shift(-1)
-    df =  df.dropna()
+    df = df.dropna()
 
     X = sm.add_constant(df[['RV Day(t)', 'RV Week', 'RV Month']])
     y = df['RV Target']
-    model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags':22})
+    model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags': 22})
     df['RV Forecast(t+1)'] = model.predict(sm.add_constant(df[['RV Day(t)', 'RV Week', 'RV Month']]))
     return model, df
-
-def bs_price(S, K, T, r, q, sigma, cp_flag):
-    if T <= 0 or sigma <= 0:
-        return np.nan
-    d1 = (np.log(S/K) + (r - q + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
-    d2 = d1 - sigma*np.sqrt(T)
-    if cp_flag == 'C':
-        return S*np.exp(-q*T)*norm.cdf(d1) - K*np.exp(-r*T)*norm.cdf(d2)
-    else:
-        return K*np.exp(-r*T)*norm.cdf(-d2) - S*np.exp(-q*T)*norm.cdf(-d1)
-
-def bs_vega(S, K, T, r, q, sigma):
-    if T <= 0 or sigma <= 0:
-        return np.nan
-    d1 = (np.log(S/K) + (r - q + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
-    return S*np.exp(-q*T)*norm.pdf(d1)*np.sqrt(T)
-
-def implied_vol_nr(price, S, K, T, r, q, cp_flag, 
-                   sigma0=0.20, tol=1e-6, max_iter=100):
-    # Sanity: price must be inside no-arb bounds
-    if cp_flag == 'C':
-        intrinsic = max(S*np.exp(-q*T) - K*np.exp(-r*T), 0)
-        upper = S*np.exp(-q*T)
-    else:
-        intrinsic = max(K*np.exp(-r*T) - S*np.exp(-q*T), 0)
-        upper = K*np.exp(-r*T)
-    if price < intrinsic - 1e-8 or price > upper + 1e-8:
-        return np.nan
-    
-    sigma = sigma0
-    for _ in range(max_iter):
-        diff = bs_price(S, K, T, r, q, sigma, cp_flag) - price
-        if abs(diff) < tol:
-            return sigma
-        v = bs_vega(S, K, T, r, q, sigma)
-        if v < 1e-10:  # vega too small, NR will diverge
-            break
-        sigma -= diff / v
-        if sigma <= 0 or sigma > 5:  # out of reasonable range
-            break
-    
-    # Bisection fallback for cases where NR fails (deep ITM/OTM, near expiry)
-    lo, hi = 1e-5, 5.0
-    for _ in range(100):
-        mid = (lo + hi) / 2
-        if bs_price(S, K, T, r, q, mid, cp_flag) < price:
-            lo = mid
-        else:
-            hi = mid
-        if hi - lo < tol:
-            return mid
-    return np.nan
-
-r = 0.0015
-q = 0.013
-
-def recompute_row(row):
-    return implied_vol_nr(
-        price=row['mid'],
-        S=row['Close'],
-        K=row['strike'],
-        T=row['dte'] / 365.0,
-        r=r,
-        q=q,
-        cp_flag=row['call_put'],
-    )
-
-
-
-

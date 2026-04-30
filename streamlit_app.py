@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from src.rv_estimators import (close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv, parkinson_total_rv, 
-                               garman_klass_total_rv, har_rv, recompute_row)
+                               garman_klass_total_rv, har_rv)
 
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
@@ -70,60 +70,23 @@ def fetch_option_chain(ticker, start, end):
     oc = oc.loc[(oc.index >= pd.Timestamp(start)) & (oc.index <= pd.Timestamp(end))]
     return oc
 
-
-@st.cache_data
-def build_merged(ticker, start, end):
-    """Merge option chain with underlying prices, fix corrupted IV window, compute moneyness."""
-    oc = fetch_option_chain(ticker, start, end)
-    if oc is None:
-        return None
-    sp = fetch_prices(ticker, start, end)
-    sp.index.name = 'date'
-    sp.index = pd.to_datetime(sp.index)
-
-    merged = oc.merge(sp, left_on='date', right_index=True, how='left')
-    merged = merged.dropna(subset=['Close'])
-    merged['moneyness'] = merged['strike'] / merged['Close']
-
-    # Repair corrupted IV window (Nov 10–24, 2021)
-    bad_start = pd.Timestamp('2021-11-10')
-    bad_end   = pd.Timestamp('2021-11-24')
-    bad_mask  = (merged.index >= bad_start) & (merged.index <= bad_end)
-    if bad_mask.any():
-        merged['mid'] = (merged['bid'] + merged['ask']) / 2
-        merged.loc[bad_mask, 'vol_recomputed'] = merged.loc[bad_mask].apply(recompute_row, axis=1)
-        merged.loc[bad_mask, 'vol'] = merged.loc[bad_mask, 'vol_recomputed']
-
-    return merged
-
-
 @st.cache_data
 def fit_har_and_align(ticker, start, end):
-    """Fit HAR-RV, aggregate ATM IV, return aligned plot dataframe + model summary string."""
-    merged = build_merged(ticker, start, end)
-    if merged is None:
+    if ticker != "SPY":
         return None, None
-
-    # ATM ~30 DTE IV aggregation
-    atm = merged[
-        (merged['moneyness'].between(0.98, 1.02)) &
-        (merged['dte'].between(20, 40))
-    ]
-    iv_daily = atm.groupby('date')['vol'].mean()
-
-    # HAR-RV fit on the underlying OHLC (one row per day)
-    sp = merged.groupby(merged.index).agg({
-        'High': 'first', 'Low': 'first', 'Open': 'first', 'Close': 'first'
-    })
+    
+    sp = fetch_prices(ticker, start, end)
+    vix = fetch_vix(start, end)
+    
     model, har = har_rv(sp)
     har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
-
+    
     plot_df = pd.DataFrame({
         'HAR Forecast Vol': har['HAR vol'],
-        'Implied Vol': iv_daily,
+        'Implied Vol': vix['Close'] / 100,
     }).dropna()
     plot_df['IV_minus_RV'] = plot_df['Implied Vol'] - plot_df['HAR Forecast Vol']
-
+    
     return plot_df, str(model.summary())
 
 with st.spinner(f"Fetching {ticker} prices..."):
