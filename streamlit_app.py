@@ -56,21 +56,6 @@ def fetch_vix(start, end):
     return data
 
 @st.cache_data
-def fetch_option_chain(ticker, start, end):
-    parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_option_chain.parquet"
-    if not parquet_path.exists():
-        return None
-    oc = pd.read_parquet(parquet_path)
-    oc = oc[(oc['date'].dt.day_of_week < 5) & 
-            (oc['date'].dt.day_of_week != 1) & 
-            (oc['date'].dt.day_of_week != 3)]
-    oc = oc.set_index('date')
-    oc.index = pd.to_datetime(oc.index)
-    oc['dte'] = (pd.to_datetime(oc['expiration']) - pd.to_datetime(oc.index)).dt.days
-    oc = oc.loc[(oc.index >= pd.Timestamp(start)) & (oc.index <= pd.Timestamp(end))]
-    return oc
-
-@st.cache_data
 def fit_har_and_align(ticker, start, end):
     if ticker != "SPY":
         return None, None
