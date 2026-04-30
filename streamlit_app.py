@@ -263,30 +263,6 @@ with tab3:
         with st.spinner("Fitting HAR-RV and aligning IV..."):
             plot_df, model_summary = fit_har_and_align(ticker, start_date, end_date)
 
-        st.write("DEBUG")
-        st.write(f"plot_df shape: {plot_df.shape if plot_df is not None else 'None'}")
-
-        merged = build_merged(ticker, start_date, end_date)
-        if merged is not None:
-            st.write(f"merged shape: {merged.shape}")
-            st.write(f"merged date range: {merged.index.min()} to {merged.index.max()}")
-            
-            atm = merged[
-                (merged['moneyness'].between(0.98, 1.02)) &
-                (merged['dte'].between(20, 40))
-            ]
-            st.write(f"ATM filtered shape: {atm.shape}")
-            
-            iv_daily = atm.groupby('date')['vol'].mean()
-            st.write(f"iv_daily shape: {iv_daily.shape}")
-            st.write(f"iv_daily index sample: {iv_daily.index[:3].tolist()}")
-
-            sp = merged.groupby(merged.index).agg({
-                'High': 'first', 'Low': 'first', 'Open': 'first', 'Close': 'first'
-            })
-            st.write(f"sp shape: {sp.shape}")
-            st.write(f"sp index sample: {sp.index[:3].tolist()}")
-
         if plot_df is None or plot_df.empty:
             st.error("No aligned data available for the selected range.")
         else:
