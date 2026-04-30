@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from src.rv_estimators import close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv, parkinson_total_rv, garman_klass_total_rv
+from src.rv_estimators import (close_to_close_rv, parkinson_rv, garman_klass_rv, yang_zhang_rv, parkinson_total_rv, 
+                               garman_klass_total_rv, har_rv, recompute_row)
 
 
 st.set_page_config(page_title="Volatility Surface Signals", layout="wide")
@@ -54,6 +55,76 @@ def fetch_vix(start, end):
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
     return data
 
+@st.cache_data
+def fetch_option_chain(ticker, start, end):
+    parquet_path = Path(__file__).parent / "data" / f"{ticker.lower()}_option_chain.parquet"
+    if not parquet_path.exists():
+        return None
+    oc = pd.read_parquet(parquet_path)
+    oc = oc[(oc['date'].dt.day_of_week < 5) & 
+            (oc['date'].dt.day_of_week != 1) & 
+            (oc['date'].dt.day_of_week != 3)]
+    oc = oc.set_index('date')
+    oc.index = pd.to_datetime(oc.index)
+    oc['dte'] = (pd.to_datetime(oc['expiration']) - pd.to_datetime(oc.index)).dt.days
+    oc = oc.loc[(oc.index >= pd.Timestamp(start)) & (oc.index <= pd.Timestamp(end))]
+    return oc
+
+
+@st.cache_data
+def build_merged(ticker, start, end):
+    """Merge option chain with underlying prices, fix corrupted IV window, compute moneyness."""
+    oc = fetch_option_chain(ticker, start, end)
+    if oc is None:
+        return None
+    sp = fetch_prices(ticker, start, end)
+    sp.index.name = 'date'
+    sp.index = pd.to_datetime(sp.index)
+
+    merged = oc.merge(sp, left_on='date', right_index=True, how='left')
+    merged = merged.dropna(subset=['Close'])
+    merged['moneyness'] = merged['strike'] / merged['Close']
+
+    # Repair corrupted IV window (Nov 10–24, 2021)
+    bad_start = pd.Timestamp('2021-11-10')
+    bad_end   = pd.Timestamp('2021-11-24')
+    bad_mask  = (merged.index >= bad_start) & (merged.index <= bad_end)
+    if bad_mask.any():
+        merged['mid'] = (merged['bid'] + merged['ask']) / 2
+        merged.loc[bad_mask, 'vol_recomputed'] = merged.loc[bad_mask].apply(recompute_row, axis=1)
+        merged.loc[bad_mask, 'vol'] = merged.loc[bad_mask, 'vol_recomputed']
+
+    return merged
+
+
+@st.cache_data
+def fit_har_and_align(ticker, start, end):
+    """Fit HAR-RV, aggregate ATM IV, return aligned plot dataframe + model summary string."""
+    merged = build_merged(ticker, start, end)
+    if merged is None:
+        return None, None
+
+    # ATM ~30 DTE IV aggregation
+    atm = merged[
+        (merged['moneyness'].between(0.98, 1.02)) &
+        (merged['dte'].between(20, 40))
+    ]
+    iv_daily = atm.groupby('date')['vol'].mean()
+
+    # HAR-RV fit on the underlying OHLC (one row per day)
+    sp = merged.groupby(merged.index).agg({
+        'High': 'first', 'Low': 'first', 'Open': 'first', 'Close': 'first'
+    })
+    model, har = har_rv(sp)
+    har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
+
+    plot_df = pd.DataFrame({
+        'HAR Forecast Vol': har['HAR vol'],
+        'Implied Vol': iv_daily,
+    }).dropna()
+    plot_df['IV_minus_RV'] = plot_df['Implied Vol'] - plot_df['HAR Forecast Vol']
+
+    return plot_df, str(model.summary())
 
 with st.spinner(f"Fetching {ticker} prices..."):
     prices = fetch_prices(ticker, start_date, end_date)
@@ -76,7 +147,7 @@ estimators_tab2 = {
     "Yang-Zhang Adjusted Parkinson": parkinson_total_rv(prices["High"], prices["Low"], prices["Open"], prices["Close"], window=window),
 }
 
-tab1, tab2 = st.tabs(["RV Estimators", "Forward RV vs VIX"])
+tab1, tab2, tab3 = st.tabs(["RV Estimators", "Forward RV vs VIX", "HAR-RV vs IV"])
 
 with tab1:
     stats_estimator = st.selectbox(
@@ -173,3 +244,73 @@ with tab2:
             f"Note: the last {window} trading days have NaN forward RV (the future hasn't realized yet), "
             f"so RV lines end before the VIX line."
         )
+
+with tab3:
+    st.subheader("HAR-RV Forecast vs Implied Volatility")
+    st.markdown(
+        "HAR-RV produces a one-day-ahead forecast of realized volatility from a heterogeneous "
+        "autoregression on daily, weekly (5d), and monthly (22d) RV components. The spread "
+        "between ATM ~30-day implied volatility and the HAR forecast is the variance risk "
+        "premium signal that drives the backtest."
+    )
+
+    if ticker != "SPY":
+        st.warning(
+            f"HAR-RV vs IV requires SPY option chain data. Current ticker: {ticker}. "
+            "Switch to SPY in the sidebar."
+        )
+    else:
+        with st.spinner("Fitting HAR-RV and aligning IV..."):
+            plot_df, model_summary = fit_har_and_align(ticker, start_date, end_date)
+
+        if plot_df is None or plot_df.empty:
+            st.error("No aligned data available for the selected range.")
+        else:
+            # Summary stats
+            st.markdown("**Variance risk premium stats**")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Mean spread", f"{plot_df['IV_minus_RV'].mean():.3f}")
+            c2.metric("Median spread", f"{plot_df['IV_minus_RV'].median():.3f}")
+            c3.metric("% days IV > RV", f"{(plot_df['IV_minus_RV'] > 0).mean() * 100:.1f}%")
+            c4.metric("Corr(IV, HAR)", f"{plot_df['Implied Vol'].corr(plot_df['HAR Forecast Vol']):.2f}")
+
+            # HAR vs IV
+            fig, ax = plt.subplots(figsize=(12, 5))
+            ax.plot(plot_df.index, plot_df['HAR Forecast Vol'] * 100, linewidth=1.2, label='HAR-RV Forecast')
+            ax.plot(plot_df.index, plot_df['Implied Vol'] * 100, linewidth=1.2, alpha=0.85, label='Implied Vol (ATM ~30d)')
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Annualized Volatility (%)")
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            st.pyplot(fig)
+
+            # Spread
+            st.markdown("**VRP spread: IV − HAR Forecast**")
+            fig2, ax2 = plt.subplots(figsize=(12, 3))
+            spread = plot_df['IV_minus_RV'] * 100
+            ax2.fill_between(spread.index, spread, 0, where=(spread >= 0),
+                             alpha=0.4, color='green', label='IV > HAR (vol rich)')
+            ax2.fill_between(spread.index, spread, 0, where=(spread < 0),
+                             alpha=0.4, color='red', label='IV < HAR (vol cheap)')
+            ax2.axhline(0, color='black', linewidth=0.8)
+            ax2.axhline(spread.mean(), color='blue', linewidth=0.8, linestyle='--',
+                        label=f'Mean ({spread.mean():.2f})')
+            ax2.set_xlabel("Date")
+            ax2.set_ylabel("Spread (vol pts)")
+            ax2.grid(True, alpha=0.3)
+            ax2.legend(loc='lower right')
+            st.pyplot(fig2)
+
+            with st.expander("HAR-RV model summary"):
+                st.code(model_summary)
+
+            with st.expander("Data hygiene notes"):
+                st.markdown(
+                    "- IV for **2021-11-10 to 2021-11-24** was recomputed via Black-Scholes "
+                    "Newton-Raphson from option mid prices because the recorded IVs were corrupted.\n"
+                    "- ATM IV aggregated as the mean of contracts with moneyness ∈ [0.98, 1.02] "
+                    "and DTE ∈ [20, 40] per date.\n"
+                    "- HAR-RV daily input uses Rogers-Satchell + squared overnight return per day; "
+                    "weekly = 5d rolling mean, monthly = 22d rolling mean.\n"
+                    "- HAR fit with HAC (Newey-West, 22 lags) standard errors."
+                )
