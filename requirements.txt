@@ -6,4 +6,5 @@ requests
 streamlit
 matplotlib
 pyarrow
+statsmodels
 -e .
