@@ -41,8 +41,8 @@ def fetch_yfinance_prices(ticker, start, end, out_path, force_refresh):
 def fetch_optionsdx_chains(raw_dir: str = "data/optionsdx_raw",
                             out_parquet: str = "data/spy_options_optionsdx.parquet",
                             force_refresh: bool = False):
-    """Load OptionsDX SPY EOD text files (split across yearly/quarterly folders),
-    concatenate, reshape from wide to long format, and cache as parquet.
+    """Load OptionsDX SPY EOD files (named spy_eod_YYYYMM.txt), concatenate,
+    reshape from wide to long format, and cache as parquet.
 
     Returns a long-format dataframe with one row per (date, expiration, strike, cp_flag).
     """
@@ -53,15 +53,15 @@ def fetch_optionsdx_chains(raw_dir: str = "data/optionsdx_raw",
     if not raw_path.exists():
         raise FileNotFoundError(f"OptionsDX raw directory not found: {raw_path}")
 
-    files = sorted(list(raw_path.rglob("*.txt")) + list(raw_path.rglob("*.csv")))
+    files = sorted(list(raw_path.glob("spy_eod_*.txt")) + list(raw_path.glob("spy_eod_*.csv")))
     if not files:
-        raise FileNotFoundError(f"No .txt or .csv files found under {raw_path}")
+        raise FileNotFoundError(f"No spy_eod_*.txt or .csv files found in {raw_path}")
 
-    print(f"Found {len(files)} OptionsDX files, loading...")
+    print(f"Found {len(files)} OptionsDX files: {files[0].name} ... {files[-1].name}")
 
     dfs = []
     for i, fp in enumerate(files):
-        if i % 10 == 0:
+        if i % 6 == 0:
             print(f"  [{i+1}/{len(files)}] {fp.name}")
         try:
             df = pd.read_csv(fp, low_memory=False)
@@ -72,15 +72,13 @@ def fetch_optionsdx_chains(raw_dir: str = "data/optionsdx_raw",
 
     wide = pd.concat(dfs, ignore_index=True)
     print(f"Combined wide shape: {wide.shape}")
-    print(f"Columns: {wide.columns.tolist()}")
+    print(f"Wide columns: {wide.columns.tolist()}")
 
-    # Parse date columns (OptionsDX uses quote_date and expire_date)
     if "quote_date" in wide.columns:
         wide["quote_date"] = pd.to_datetime(wide["quote_date"], errors="coerce")
     if "expire_date" in wide.columns:
         wide["expire_date"] = pd.to_datetime(wide["expire_date"], errors="coerce")
 
-    # Reshape wide -> long: one row per contract with cp_flag
     shared_cols = [c for c in ["quote_date", "expire_date", "strike", "underlying_last", "dte"]
                    if c in wide.columns]
 
@@ -95,7 +93,6 @@ def fetch_optionsdx_chains(raw_dir: str = "data/optionsdx_raw",
 
     long = pd.concat([calls, puts], ignore_index=True)
 
-    # Standardize column names to match your existing pipeline conventions
     rename_map = {
         "quote_date": "date",
         "expire_date": "expiration",
@@ -104,15 +101,19 @@ def fetch_optionsdx_chains(raw_dir: str = "data/optionsdx_raw",
     }
     long = long.rename(columns={k: v for k, v in rename_map.items() if k in long.columns})
 
-    # Compute dte if not present
+    numeric_cols = ['strike', 'underlying', 'bid', 'ask', 'last', 'volume',
+                    'openinterest', 'open_interest', 'iv', 'vol', 'delta', 'gamma',
+                    'theta', 'vega', 'rho', 'size', 'dte']
+    for col in numeric_cols:
+        if col in long.columns:
+            long[col] = pd.to_numeric(long[col], errors='coerce')
+
     if "dte" not in long.columns and "expiration" in long.columns and "date" in long.columns:
         long["dte"] = (long["expiration"] - long["date"]).dt.days
 
-    # Compute moneyness if underlying is present
     if "underlying" in long.columns and "strike" in long.columns:
         long["moneyness"] = long["strike"] / long["underlying"]
 
-    # Sort and dedupe
     if "date" in long.columns:
         long = long.sort_values(["date", "expiration", "strike", "cp_flag"]).reset_index(drop=True)
 
