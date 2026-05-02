@@ -152,8 +152,7 @@ with tab2:
         with st.spinner("Fetching Options Chain..."):
             dx = fetch_optionsdx(start_date, end_date)
 
-        atm_30d = dx[(dx['moneyness'].between(0.98, 1.02)) & (dx['dte'].between(20, 40))]
-        iv_daily = atm_30d.groupby('date')['vol'].mean()
+        iv_daily = dx['iv']
         vrp_estimator = st.selectbox("VRP estimator",
         options=available_vrp_estimator,
         index=available_vrp_estimator.index("Yang-Zhang"),
