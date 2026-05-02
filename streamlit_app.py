@@ -63,8 +63,7 @@ def fit_har_and_align(ticker, start, end):
     sp = fetch_prices(ticker, start, end)
     dx = fetch_optionsdx(start, end)
 
-    atm_30d = dx[(dx['moneyness'].between(0.98, 1.02)) & (dx['dte'].between(20, 40))]
-    iv_daily = atm_30d.groupby('date')['vol'].mean()
+    iv_daily = dx['iv']
     
     model, har = har_rv(sp)
     har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
@@ -150,7 +149,7 @@ with tab2:
     elif not plotted_estimators_frv:
         st.info("Select at least one estimator in the sidebar to plot.")
     else:
-        with st.spinner("Fetching VIX..."):
+        with st.spinner("Fetching Options Chain..."):
             dx = fetch_optionsdx(start_date, end_date)
 
         atm_30d = dx[(dx['moneyness'].between(0.98, 1.02)) & (dx['dte'].between(20, 40))]
