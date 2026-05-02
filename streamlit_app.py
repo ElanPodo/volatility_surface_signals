@@ -63,10 +63,10 @@ def fit_har_and_align(ticker, start, end):
     sp = fetch_prices(ticker, start, end)
     dx = fetch_optionsdx(start, end)
 
-    iv_daily = dx['iv'] * 100
+    iv_daily = dx['iv']
     
     model, har = har_rv(sp)
-    har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
+    har['HAR vol'] = har['RV Forecast(t+1)']
     
     plot_df = pd.DataFrame({
         'HAR Forecast Vol': har['HAR vol'],
@@ -143,7 +143,6 @@ with tab2:
 
     if ticker != "SPY":
         st.warning(
-            f"Forward RV vs VIX comparison is only meaningful for SPY (VIX is SPX-implied vol). "
             f"Current ticker: {ticker}. Switch to SPY in the sidebar to view this chart."
         )
     elif not plotted_estimators_frv:
@@ -180,8 +179,8 @@ with tab2:
 
         st.markdown(f"**VRP spread: VIX − Forward {vrp_estimator} RV**")
         fig2, ax2 = plt.subplots(figsize=(12, 3))
-        ax2.fill_between(vrp.index, vrp, 0, where=(vrp >= 0), alpha=0.4, color="green", label="VIX > RV (vol overpriced)")
-        ax2.fill_between(vrp.index, vrp, 0, where=(vrp < 0), alpha=0.4, color="red", label="VIX < RV (vol underpriced)")
+        ax2.fill_between(vrp.index, vrp, 0, where=(vrp >= 0), alpha=0.4, color="green", label="IV > RV (vol overpriced)")
+        ax2.fill_between(vrp.index, vrp, 0, where=(vrp < 0), alpha=0.4, color="red", label="IV < RV (vol underpriced)")
         ax2.axhline(0, color="black", linewidth=0.8)
         ax2.axhline(vrp.mean(), color="blue", linewidth=0.8, linestyle="--", label=f"Mean ({vrp.mean():.2f})")
         ax2.set_xlabel("Date")
@@ -219,8 +218,8 @@ with tab3:
             # Summary stats
             st.markdown("**Variance risk premium stats**")
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Mean spread", f"{plot_df['IV_minus_RV'].mean():.3f}")
-            c2.metric("Median spread", f"{plot_df['IV_minus_RV'].median():.3f}")
+            c1.metric("Mean spread", f"{plot_df['IV_minus_RV'].mean()*100:.3f}")
+            c2.metric("Median spread", f"{plot_df['IV_minus_RV'].median()*100:.3f}")
             c3.metric("% days IV > RV", f"{(plot_df['IV_minus_RV'] > 0).mean() * 100:.1f}%")
             c4.metric("Corr(IV, HAR)", f"{plot_df['Implied Vol'].corr(plot_df['HAR Forecast Vol']):.2f}")
 
