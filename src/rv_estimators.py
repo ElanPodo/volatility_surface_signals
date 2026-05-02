@@ -79,15 +79,17 @@ def har_rv(data, annualize=True, trading_days=252):
         data = data.groupby(data.index).agg({
             'High': 'first', 'Low': 'first', 'Open': 'first', 'Close': 'first'
         })
-    
-    rv_1 = daily_rv(data['High'], data['Low'], data['Open'], data['Close'])
+
+    rv_var = daily_rv(data['High'], data['Low'], data['Open'], data['Close'])
     if annualize:
-        rv_1 = rv_1 * trading_days
+        rv_var = rv_var * trading_days
+
+    rv = np.sqrt(rv_var)
 
     df = pd.DataFrame({
-        "RV Day(t)": rv_1,
-        "RV Week": rv_1.rolling(5).mean(),
-        "RV Month": rv_1.rolling(22).mean(),
+        "RV Day(t)": rv,
+        "RV Week": rv.rolling(5).mean(),
+        "RV Month": rv.rolling(22).mean(),
     }, index=data.index)
     df['RV Target'] = df['RV Day(t)'].shift(-1)
     df = df.dropna()
@@ -96,4 +98,5 @@ def har_rv(data, annualize=True, trading_days=252):
     y = df['RV Target']
     model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags': 22})
     df['RV Forecast(t+1)'] = model.predict(sm.add_constant(df[['RV Day(t)', 'RV Week', 'RV Month']]))
+    
     return model, df
