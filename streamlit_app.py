@@ -49,7 +49,7 @@ def fetch_prices(ticker, start, end):
 
 @st.cache_data
 def fetch_optionsdx(start, end):
-    parquet_path = Path(__file__).parent / "data" / "spy_options_optionsdx.parquet"
+    parquet_path = Path(__file__).parent / "data" / "spy_atm_iv_daily.parquet"
     data = pd.read_parquet(parquet_path)
     data.index.name = "date"
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
