@@ -63,7 +63,7 @@ def fit_har_and_align(ticker, start, end):
     sp = fetch_prices(ticker, start, end)
     dx = fetch_optionsdx(start, end)
 
-    iv_daily = dx['iv']
+    iv_daily = dx['iv'] * 100
     
     model, har = har_rv(sp)
     har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
@@ -152,7 +152,7 @@ with tab2:
         with st.spinner("Fetching Options Chain..."):
             dx = fetch_optionsdx(start_date, end_date)
 
-        iv_daily = dx['iv']
+        iv_daily = dx['iv'] * 100
         vrp_estimator = st.selectbox("VRP estimator",
         options=available_vrp_estimator,
         index=available_vrp_estimator.index("Yang-Zhang"),
@@ -168,7 +168,7 @@ with tab2:
         m4.metric("Corr(VIX, fwd RV)", f"{iv_daily.corr(forward_rv_stats):.2f}")
 
         fig, ax = plt.subplots(figsize=(12, 5))
-        ax.plot(iv_daily.index, iv_daily, linewidth=1.2, label="VIX)", color="black")
+        ax.plot(iv_daily.index, iv_daily, linewidth=1.2, label="IV ATM (30d)", color="black")
         for name in available_vrp_estimator:
             forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
