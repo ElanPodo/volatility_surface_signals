@@ -48,8 +48,8 @@ def fetch_prices(ticker, start, end):
 
 
 @st.cache_data
-def fetch_vix(start, end):
-    parquet_path = Path(__file__).parent / "data" / "vix_prices.parquet"
+def fetch_optionsdx(start, end):
+    parquet_path = Path(__file__).parent / "data" / "spy_options_optionsdx.parquet"
     data = pd.read_parquet(parquet_path)
     data.index.name = "date"
     data = data.loc[(data.index >= pd.Timestamp(start)) & (data.index <= pd.Timestamp(end))]
@@ -61,14 +61,17 @@ def fit_har_and_align(ticker, start, end):
         return None, None
     
     sp = fetch_prices(ticker, start, end)
-    vix = fetch_vix(start, end)
+    dx = fetch_optionsdx(start, end)
+
+    atm_30d = dx[(dx['moneyness'].between(0.98, 1.02)) & (dx['dte'].between(20, 40))]
+    iv_daily = atm_30d.groupby('date')['vol'].mean()
     
     model, har = har_rv(sp)
     har['HAR vol'] = np.sqrt(har['RV Forecast(t+1)'])
     
     plot_df = pd.DataFrame({
         'HAR Forecast Vol': har['HAR vol'],
-        'Implied Vol': vix['Close'] / 100,
+        'Implied Vol': iv_daily,
     }).dropna()
     plot_df['IV_minus_RV'] = plot_df['Implied Vol'] - plot_df['HAR Forecast Vol']
     
@@ -148,25 +151,25 @@ with tab2:
         st.info("Select at least one estimator in the sidebar to plot.")
     else:
         with st.spinner("Fetching VIX..."):
-            vix = fetch_vix(start_date, end_date)
+            dx = fetch_optionsdx(start_date, end_date)
 
-        vix_adjusted = vix["Close"]
+        dx_iv = dx['vol']
         vrp_estimator = st.selectbox("VRP estimator",
         options=available_vrp_estimator,
         index=available_vrp_estimator.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
         forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
-        vrp = (vix_adjusted - forward_rv_stats).dropna()
+        vrp = (dx_iv - forward_rv_stats).dropna()
 
         st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Mean VRP", f"{vrp.mean():.2f} vol pts")
         m2.metric("% days VRP > 0", f"{(vrp > 0).mean() * 100:.1f}%")
         m3.metric("Worst day", f"{vrp.min():.2f}")
-        m4.metric("Corr(VIX, fwd RV)", f"{vix_adjusted.corr(forward_rv_stats):.2f}")
+        m4.metric("Corr(VIX, fwd RV)", f"{dx_iv.corr(forward_rv_stats):.2f}")
 
         fig, ax = plt.subplots(figsize=(12, 5))
-        ax.plot(vix_adjusted.index, vix_adjusted, linewidth=1.2, label="VIX)", color="black")
+        ax.plot(dx_iv.index, dx_iv, linewidth=1.2, label="VIX)", color="black")
         for name in available_vrp_estimator:
             forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
