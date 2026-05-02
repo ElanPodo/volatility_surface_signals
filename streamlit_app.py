@@ -153,23 +153,24 @@ with tab2:
         with st.spinner("Fetching VIX..."):
             dx = fetch_optionsdx(start_date, end_date)
 
-        dx_iv = dx['vol']
+        atm_30d = dx[(dx['moneyness'].between(0.98, 1.02)) & (dx['dte'].between(20, 40))]
+        iv_daily = atm_30d.groupby('date')['vol'].mean()
         vrp_estimator = st.selectbox("VRP estimator",
         options=available_vrp_estimator,
         index=available_vrp_estimator.index("Yang-Zhang"),
         help="Drives the VRP metrics and spread subplot below.")
         forward_rv_stats = estimators_tab2[vrp_estimator].shift(-window) * 100
-        vrp = (dx_iv - forward_rv_stats).dropna()
+        vrp = (iv_daily - forward_rv_stats).dropna()
 
         st.markdown(f"**Variance risk premium stats (using {vrp_estimator})**")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Mean VRP", f"{vrp.mean():.2f} vol pts")
         m2.metric("% days VRP > 0", f"{(vrp > 0).mean() * 100:.1f}%")
         m3.metric("Worst day", f"{vrp.min():.2f}")
-        m4.metric("Corr(VIX, fwd RV)", f"{dx_iv.corr(forward_rv_stats):.2f}")
+        m4.metric("Corr(VIX, fwd RV)", f"{iv_daily.corr(forward_rv_stats):.2f}")
 
         fig, ax = plt.subplots(figsize=(12, 5))
-        ax.plot(dx_iv.index, dx_iv, linewidth=1.2, label="VIX)", color="black")
+        ax.plot(iv_daily.index, iv_daily, linewidth=1.2, label="VIX)", color="black")
         for name in available_vrp_estimator:
             forward_rv = estimators_tab2[name].shift(-window) * 100
             ax.plot(forward_rv.index, forward_rv, linewidth=1, alpha=0.8, label=f"Forward {name} RV")
